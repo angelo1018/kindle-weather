@@ -317,8 +317,7 @@
 
   // ===== 随机选取名言 =====
   function pickRandomQuote() {
-    var daySeed = new Date().getDate() + new Date().getMonth() * 31;
-    var idx = daySeed % QUOTES.length; // 每日一换（同一天稳定显示同一句）
+    var idx = Math.floor(Math.random() * QUOTES.length);
     elQuote.textContent = QUOTES[idx];
   }
   pickRandomQuote();
