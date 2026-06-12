@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="refresh" content="1800">
+<title>时钟与天气</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #ffffff;
+    color: #000000;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .container {
+    max-width: 600px;
+    width: 100%;
+    text-align: center;
+  }
+
+  /* 时钟 */
+  .clock {
+    font-size: 72px;
+    font-weight: 300;
+    letter-spacing: 4px;
+    line-height: 1.1;
+    margin-bottom: 8px;
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  /* 日期 */
+  .date {
+    font-size: 22px;
+    font-weight: 400;
+    color: #333333;
+    margin-bottom: 30px;
+    letter-spacing: 1px;
+  }
+
+  /* 分隔线 */
+  .divider {
+    width: 80px;
+    height: 2px;
+    background: #cccccc;
+    margin: 0 auto 30px;
+  }
+
+  /* 今日天气 */
+  .weather-today {
+    margin-bottom: 30px;
+  }
+
+  .weather-condition {
+    font-size: 20px;
+    color: #555555;
+    margin-bottom: 6px;
+  }
+
+  .weather-temp {
+    font-size: 44px;
+    font-weight: 300;
+    letter-spacing: 1px;
+  }
+
+  .weather-details {
+    font-size: 16px;
+    color: #777777;
+    margin-top: 8px;
+  }
+
+  .weather-details span {
+    margin: 0 8px;
+  }
+
+  .weather-details .sep {
+    color: #dddddd;
+  }
+
+  /* 城市名 */
+  .city-name {
+    font-size: 16px;
+    color: #888888;
+    margin-bottom: 6px;
+  }
+
+  /* 未来预报 */
+  .forecast-title {
+    font-size: 14px;
+    color: #999999;
+    letter-spacing: 2px;
+    margin-bottom: 14px;
+    text-transform: uppercase;
+  }
+
+  .forecast {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .forecast td {
+    padding: 10px 6px;
+    border-bottom: 1px solid #eeeeee;
+    font-size: 17px;
+    text-align: center;
+  }
+
+  .forecast tr:last-child td {
+    border-bottom: none;
+  }
+
+  .forecast .day-name {
+    text-align: left;
+    font-weight: 500;
+    color: #000000;
+    width: 30%;
+  }
+
+  .forecast .day-name.today {
+    font-weight: 700;
+  }
+
+  .forecast .day-cond {
+    color: #555555;
+    width: 35%;
+  }
+
+  .forecast .day-temp {
+    text-align: right;
+    color: #333333;
+    width: 35%;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .forecast .temp-low {
+    color: #999999;
+  }
+
+  /* 底部 */
+  .footer {
+    font-size: 12px;
+    color: #bbbbbb;
+    margin-top: 30px;
+  }
+
+  .footer .update-time {
+    margin-top: 4px;
+  }
+
+  /* 加载/错误 */
+  .loading {
+    color: #999999;
+    font-size: 16px;
+    padding: 20px 0;
+  }
+
+  .error {
+    color: #cc0000;
+    font-size: 14px;
+    padding: 10px 0;
+  }
+
+  /* Kindle 小屏幕适配 */
+  @media (max-width: 480px) {
+    .clock { font-size: 56px; }
+    .weather-temp { font-size: 36px; }
+    .date { font-size: 18px; }
+    .forecast td { font-size: 15px; padding: 8px 4px; }
+  }
+</style>
+</head>
+<body>
+<div class="container" id="app">
+  <div class="clock" id="clock">--:--:--</div>
+  <div class="date" id="date">----年 --月 --日 星期-</div>
+  <div class="divider"></div>
+
+  <div class="city-name" id="cityName">--</div>
+  <div class="weather-today">
+    <div class="weather-condition" id="weatherCond">--</div>
+    <div class="weather-temp" id="weatherTemp">--°C</div>
+    <div class="weather-details" id="weatherDetails">
+      <span id="feelLike">体感 --°C</span>
+      <span class="sep">|</span>
+      <span id="humidity">湿度 --%</span>
+      <span class="sep">|</span>
+      <span id="windSpeed">风速 -- km/h</span>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="forecast-title">未 来 天 气 预 报</div>
+  <table class="forecast" id="forecast">
+    <tr><td colspan="3" class="loading">加载中...</td></tr>
+  </table>
+
+  <div class="footer">
+    <div>数据来源: Open-Meteo</div>
+    <div class="update-time" id="updateTime">更新于: --</div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ===== 配置 =====
+  // 如果要固定城市，请修改下面这个 LAT/LON 或 CITY_NAME
+  // 留空则尝试根据 IP 自动获取位置
+  var CONFIG = {
+    cityName: '宿州',  // 例如 '北京' 或 'Shanghai'，留空则自动检测
+    latitude: null,   // 手动指定纬度，优先级高于 cityName
+    longitude: null,  // 手动指定经度
+    lang: 'zh'        // 语言
+  };
+
+  // ===== DOM 引用 =====
+  var elClock = document.getElementById('clock');
+  var elDate = document.getElementById('date');
+  var elCity = document.getElementById('cityName');
+  var elCond = document.getElementById('weatherCond');
+  var elTemp = document.getElementById('weatherTemp');
+  var elFeel = document.getElementById('feelLike');
+  var elHumidity = document.getElementById('humidity');
+  var elWind = document.getElementById('windSpeed');
+  var elForecast = document.getElementById('forecast');
+  var elUpdate = document.getElementById('updateTime');
+
+  // ===== 星期映射 =====
+  var WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+
+  // ===== WMO 天气码 → 中文描述 =====
+  var WMO_CODES = {
+    0:  '☀️ 晴天', 1: '🌤️ 少云', 2: '⛅ 多云', 3: '☁️ 阴天',
+    45: '🌫️ 雾', 48: '🌫️ 雾凇',
+    51: '🌦️ 小毛毛雨', 53: '🌦️ 毛毛雨', 55: '🌦️ 大毛毛雨',
+    56: '🌧️ 冻毛毛雨', 57: '🌧️ 冻毛毛雨',
+    61: '🌧️ 小雨', 63: '🌧️ 中雨', 65: '🌧️ 大雨',
+    66: '🌧️ 冻雨', 67: '🌧️ 冻雨',
+    71: '🌨️ 小雪', 73: '🌨️ 中雪', 75: '🌨️ 大雪',
+    77: '🌨️ 雪粒',
+    80: '🌦️ 阵雨', 81: '🌦️ 中阵雨', 82: '🌦️ 大阵雨',
+    85: '🌨️ 小阵雪', 86: '🌨️ 大阵雪',
+    95: '⛈️ 雷暴', 96: '⛈️ 雷暴+冰雹', 99: '⛈️ 雷暴+大冰雹'
+  };
+
+  function getWeatherDesc(code) {
+    code = Math.round(code);
+    return WMO_CODES[code] || '🌈 未知';
+  }
+
+  // ===== 时钟更新 =====
+  function updateClock() {
+    var now = new Date();
+    var h = String(now.getHours()).padStart(2, '0');
+    var m = String(now.getMinutes()).padStart(2, '0');
+    var s = String(now.getSeconds()).padStart(2, '0');
+    elClock.textContent = h + ':' + m + ':' + s;
+
+    var y = now.getFullYear();
+    var mo = String(now.getMonth() + 1).padStart(2, '0');
+    var d = String(now.getDate()).padStart(2, '0');
+    var w = WEEKDAYS[now.getDay()];
+    elDate.textContent = y + '年 ' + mo + '月 ' + d + '日 ' + w;
+  }
+
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // ===== 天气数据获取 =====
+
+  // 获取坐标
+  function getCoordinates() {
+    // 如果手动指定了经纬度
+    if (CONFIG.latitude !== null && CONFIG.longitude !== null) {
+      return Promise.resolve({
+        lat: CONFIG.latitude,
+        lon: CONFIG.longitude,
+        name: CONFIG.cityName || ''
+      });
+    }
+
+    // 如果指定了城市名
+    if (CONFIG.cityName) {
+      var url = 'https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(CONFIG.cityName) + '&count=1&language=zh&format=json';
+      return fetch(url)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.results && data.results.length > 0) {
+            var r = data.results[0];
+            return { lat: r.latitude, lon: r.longitude, name: r.name + (r.admin1 ? ', ' + r.admin1 : '') };
+          }
+          throw new Error('未找到城市: ' + CONFIG.cityName);
+        });
+    }
+
+    // 自动检测 IP 定位
+    return fetch('https://ipapi.co/json/')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.latitude && data.longitude) {
+          var name = data.city || '';
+          if (data.region) name = name ? name + ', ' + data.region : data.region;
+          return { lat: data.latitude, lon: data.longitude, name: name || '未知位置' };
+        }
+        // 备选: ip-api.com
+        return fetch('http://ip-api.com/json/?lang=zh-CN')
+          .then(function(r) { return r.json(); })
+          .then(function(d) {
+            if (d.status === 'success') {
+              return { lat: d.lat, lon: d.lon, name: d.city + (d.regionName ? ', ' + d.regionName : '') };
+            }
+            throw new Error('无法自动定位');
+          });
+      });
+  }
+
+  // 获取天气数据
+  function fetchWeather(lat, lon) {
+    var now = new Date();
+    var timezone = Intl.DateTimeFormat ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'auto';
+    var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon
+      + '&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m'
+      + '&daily=temperature_2m_max,temperature_2m_min,weather_code'
+      + '&timezone=' + encodeURIComponent(timezone)
+      + '&forecast_days=6';
+
+    return fetch(url)
+      .then(function(r) { return r.json(); });
+  }
+
+  // 渲染天气
+  function renderWeather(data, cityName) {
+    var current = data.current;
+    var daily = data.daily;
+
+    // 城市
+    elCity.textContent = cityName || '未知位置';
+
+    // 当前天气
+    var condCode = current.weather_code;
+    var condText = getWeatherDesc(condCode);
+    elCond.textContent = condText;
+
+    var temp = Math.round(current.temperature_2m);
+    elTemp.textContent = temp + '°C';
+
+    var feel = Math.round(current.apparent_temperature);
+    elFeel.textContent = '体感 ' + feel + '°C';
+
+    elHumidity.textContent = '湿度 ' + current.relative_humidity_2m + '%';
+
+    var wind = Math.round(current.wind_speed_10m);
+    elWind.textContent = '风速 ' + wind + ' km/h';
+
+    // 未来预报
+    var html = '';
+    var todayStr = new Date().toISOString().slice(0, 10);
+    var weekAbbr = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
+    for (var i = 0; i < daily.time.length; i++) {
+      var dateStr = daily.time[i];
+      var d = new Date(dateStr + 'T12:00:00');
+      var dayName = dateStr === todayStr ? '今日' : weekAbbr[d.getDay()];
+      var isToday = dateStr === todayStr;
+      var maxT = Math.round(daily.temperature_2m_max[i]);
+      var minT = Math.round(daily.temperature_2m_min[i]);
+      var wCode = getWeatherDesc(daily.weather_code[i]);
+
+      html += '<tr>'
+        + '<td class="day-name' + (isToday ? ' today' : '') + '">' + dayName + '</td>'
+        + '<td class="day-cond">' + wCode + '</td>'
+        + '<td class="day-temp"><span class="temp-low">' + minT + '°</span> / ' + maxT + '°</td>'
+        + '</tr>';
+    }
+    elForecast.innerHTML = html;
+
+    // 更新时间
+    var now = new Date();
+    var hh = String(now.getHours()).padStart(2, '0');
+    var mm = String(now.getMinutes()).padStart(2, '0');
+    elUpdate.textContent = '更新于: ' + hh + ':' + mm;
+  }
+
+  function showError(msg) {
+    elCond.textContent = '⚠️ ' + msg;
+    elForecast.innerHTML = '<tr><td colspan="3" class="error">数据加载失败，请刷新页面重试</td></tr>';
+  }
+
+  // ===== 初始化 =====
+  getCoordinates()
+    .then(function(pos) {
+      var name = CONFIG.cityName || pos.name;
+      return fetchWeather(pos.lat, pos.lon).then(function(w) {
+        return { weather: w, name: name };
+      });
+    })
+    .then(function(result) {
+      renderWeather(result.weather, result.name);
+    })
+    .catch(function(err) {
+      console.error(err);
+      showError(err.message || '获取天气数据失败');
+    });
+
+  // 自动刷新（meta refresh 已处理，这里再加一个 30 分钟的 JS 刷新）
+  setTimeout(function() {
+    location.reload();
+  }, 30 * 60 * 1000);
+
+})();
+</script>
+</body>
+</html>
