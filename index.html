@@ -53,6 +53,22 @@
     margin: 0 auto 30px;
   }
 
+  /* 名言 */
+  .quote {
+    font-size: 15px;
+    color: #666666;
+    line-height: 1.6;
+    margin-bottom: 24px;
+    padding: 0 10px;
+    min-height: 48px;
+  }
+  .quote::before { content: '「'; }
+  .quote::after { content: '」'; }
+
+  @media (max-width: 480px) {
+    .quote { font-size: 13px; min-height: 40px; }
+  }
+
   /* 今日天气 */
   .weather-today {
     margin-bottom: 30px;
@@ -178,6 +194,7 @@
 </head>
 <body>
 <div class="container" id="app">
+  <div class="quote" id="quote"></div>
   <div class="clock" id="clock">--:--:--</div>
   <div class="date" id="date">----年 --月 --日 星期-</div>
   <div class="divider"></div>
@@ -224,6 +241,7 @@
   // ===== DOM 引用 =====
   var elClock = document.getElementById('clock');
   var elDate = document.getElementById('date');
+  var elQuote = document.getElementById('quote');
   var elCity = document.getElementById('cityName');
   var elCond = document.getElementById('weatherCond');
   var elTemp = document.getElementById('weatherTemp');
@@ -255,6 +273,55 @@
     code = Math.round(code);
     return WMO_CODES[code] || '🌈 未知';
   }
+
+  // ===== 名言数据（来自 Obsidian 笔记摘录） =====
+  var QUOTES = [
+    '五千年智慧，在岁月不同处灵动，可能是一句话，也可能是一本书',
+    '三万六千五百天，每天都在感受，或在日记中，或在学习笔记里',
+    '人生处处是风景，亦或高山，亦或一马平川，别错过任何一段经历，积极参与，踊跃记录！',
+    '读书破万卷，涵养心灵，开阔视界，融汇众多智慧，领略千差万别的人生之美',
+    '不拘乎山水之形，云阵皆山，月光皆水；有得乎酒诗之意，花酣也酒，鸟笑也诗。 —— 赵之谦',
+    '你面前有个杯子，你喝水它就是杯子，你抽烟它就是烟灰缸，你插花它就是花瓶。杯子本身什么都不是，这叫空性。',
+    '这个世界其实没有别人，只有你自己。你在，世界就跟着存在，你走后世界就跟着消失。',
+    '那些人，那些事，那些执着，那些控制，不过都是你内心和自己起的各种纠缠',
+    '格局不是你的一种技巧，而是一种境界！',
+    '大方无隅，大器晚成，大音希声，大象无形。 —— 老子',
+    '反者道之动，弱者道之用。天下万物生于有，有生于无。 —— 老子',
+    '上兵伐谋，其次伐交，其次伐兵。 —— 孙子',
+    '心即理，知行合一。 —— 王阳明',
+    '人是某种应当被超越的东西。 —— 尼采',
+    '人类本质上是社会性动物，与他人建立深层且持久的连接是写在基因里的本能。',
+    '决定人与人之间人生差异的，不是天赋，不是勤奋程度，而是思维模式。',
+    '遇到急事，拒绝灾难思维；遇到难事，掌握上游思维；遇到烂事，学会买单思维；遇到烦事，戒掉反刍思维。',
+    '无论遇到什么事，都不要假设最坏的情况，平和才能制胜。',
+    '如果我有1小时来解决问题，我会花55分钟思考问题，再用5分钟思考解决方案。 —— 爱因斯坦',
+    '当你凝视深渊时，深渊也在凝视你。 —— 尼采',
+    '人生苦短，面对现实中的烂人烂事，趁早买单离场。',
+    '你越在意什么，什么就越折磨你，你越纠结什么，什么就越困扰你。',
+    '你这辈子的成就，最终能达到多高，是靠你的思维模式支撑起来的。',
+    '真正推动人进步的往往不是热爱，而是清晰而持续的危机感。',
+    '如果你已经很久没有因为兴奋而心跳加速，很可能说明生活缺少挑战与紧张感，人已经开始钝化。',
+    '欲买桂花同载酒，终不似少年游。 —— 刘过',
+    '结束一件事的最好方法，就是看见它。',
+    '习惯优于系统——不要为了"有"而建。 —— Karpathy',
+    '人拥有绝对自由，但须为选择承担全部责任。',
+    '存在即合理。 —— 黑格尔',
+    '凡是不可言说的，请保持沉默。 —— 维特根斯坦',
+    '朝闻道，夕死可矣。 —— 孔子',
+    '格物致知，诚意正心，修身齐家，治国平天下。 —— 礼记',
+    '心不在焉，视而不见，听而不闻，食而不知其味。 —— 礼记',
+    '一个人的成功与幸福并非纯粹的个人竞赛，而是一场关于情感调协、深度连接与社会无形脚手架的复杂舞蹈。',
+    '放开自己的认知看法，安静听完别人的观点，是一种谦逊的品格锻炼。',
+    '承认自己并非孤岛，并愿意投入时间去培育那些无法量化但至关重要的品格。'
+  ];
+
+  // ===== 随机选取名言 =====
+  function pickRandomQuote() {
+    var daySeed = new Date().getDate() + new Date().getMonth() * 31;
+    var idx = daySeed % QUOTES.length; // 每日一换（同一天稳定显示同一句）
+    elQuote.textContent = QUOTES[idx];
+  }
+  pickRandomQuote();
 
   // ===== 时钟更新 =====
   function updateClock() {
